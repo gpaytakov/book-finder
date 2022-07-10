@@ -4,16 +4,16 @@ const { signToken } = require("../utils/auth");
 
 const resolvers = {
   Query: {
-    me: async (parent, user) => {
-      if (user) {
-        const foundUser = await User.findOne({
+    me: async (parent, args, context) => {
+      if (context.user) {
+        const userData = await User.findOne({
           $or: [
-            { _id: user ? user._id : params.id },
+            { _id: context.user ? context.user._id : params.id },
             { username: params.username },
           ],
         });
 
-        return foundUser;
+        return userData;
       }
 
       throw new AuthenticationError("User not found");
@@ -23,13 +23,11 @@ const resolvers = {
     addUser: async (parent, args) => {
       const user = await User.create(args);
       const token = signToken(user);
-      return {token, user};
+      return { token, user };
     },
-    
-    loginUser: async (parent, { body, password }) => {
-      const user = await User.findOne({
-        $or: [{ username: body.username }, { email: body.email }],
-      });
+
+    loginUser: async (parent, { email, password }) => {
+      const user = await User.findOne({ email });
 
       if (!user) {
         throw new AuthenticationError("Incorrect credentials");
@@ -44,19 +42,19 @@ const resolvers = {
       const token = signToken(user);
       return { token, user };
     },
-    saveBook: async (parent, {bookData}, context) => {
+    saveBook: async (parent, { bookData }, context) => {
       if (context.user) {
         const updatedUser = await User.findByIdAndUpdate(
           { _id: context.user._id },
           { $push: { savedBooks: bookData } },
-          { new: true }
+          { new: true, runValidators: true }
         );
         return updatedUser;
       }
 
       throw new AuthenticationError("You need to be logged in!");
     },
-    removeBook: async (parent, {bookId}, context) => {
+    removeBook: async (parent, { bookId }, context) => {
       if (context.user) {
         const updatedUser = await User.findOneAndUpdate(
           { _id: context.user._id },
@@ -65,7 +63,7 @@ const resolvers = {
         );
         return updatedUser;
       }
-      throw new AuthenticationError("You need to be logged in!"); 
+      throw new AuthenticationError("You need to be logged in!");
     },
   },
 };
